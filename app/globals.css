@@ -87,3 +87,37 @@ pre code {
   border-radius: 0;
   font-size: 0.875rem;
 }
+
+/* Safe area support for iPhone notch / Dynamic Island */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Sidebar drawer slide animation */
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes slideOut {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Mobile tap highlight suppression */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent body scroll when sidebar drawer open on mobile */
+body.drawer-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
