@@ -745,6 +745,22 @@ function MessageBubble({ message, isMobile }: { message: Message; isMobile: bool
             {message.content && <p style={{ margin: '0 0 10px', color: '#888', fontSize: 13 }}>{message.content}</p>}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={message.imageUrl} alt="Generated image" style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid #2a2a2a', display: 'block' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+            <a
+              href={message.imageUrl}
+              download="anachat-image.png"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, padding: '7px 14px', background: '#1a1a2e', border: '1px solid #3730a3', borderRadius: 8, color: '#818cf8', fontSize: 13, fontWeight: 600, textDecoration: 'none', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = '#7c3aed'; (e.currentTarget as HTMLAnchorElement).style.color = '#fff'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = '#1a1a2e'; (e.currentTarget as HTMLAnchorElement).style.color = '#818cf8'; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Download
+            </a>
           </div>
         ) : (
           <div style={{ whiteSpace: 'pre-wrap' }}>
