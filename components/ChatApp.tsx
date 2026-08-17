@@ -684,9 +684,6 @@ export default function ChatApp() {
               </button>
             </div>
 
-            <p style={{ textAlign: 'center', color: '#333', fontSize: 10, margin: '6px 0 0' }}>
-              AnaChat may produce inaccurate information.
-            </p>
           </div>
         </div>
       </div>
