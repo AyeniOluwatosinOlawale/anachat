@@ -348,16 +348,30 @@ export default function ChatApp() {
     updateConversation(convId, (c) => ({ ...c, messages: [...c.messages, userMsg, placeholder] }));
 
     try {
-      const res = await fetch('/api/image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userMsg.content, size: '1024x1024', steps: 4 }),
-      });
+      const imageCtrl = new AbortController();
+      const imageTimeout = setTimeout(() => imageCtrl.abort(), 30_000);
 
-      const data = await res.json();
+      let res: Response;
+      try {
+        res = await fetch('/api/image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: userMsg.content, size: '1024x1024', steps: 4 }),
+          signal: imageCtrl.signal,
+        });
+      } finally {
+        clearTimeout(imageTimeout);
+      }
+
+      let data: unknown;
+      try { data = await res.json(); } catch { data = {}; }
 
       if (!res.ok) {
-        const errMsg = (data as { error?: string })?.error ?? `Image generation failed (${res.status})`;
+        const errMsg =
+          (data as { error?: string })?.error ??
+          (res.status >= 502
+            ? 'Image service is offline. Please try again later.'
+            : `Image generation failed (${res.status})`);
         updateConversation(convId, (c) => ({
           ...c,
           messages: c.messages.map((m) => m.id === placeholderId ? { ...m, content: `⚠️ ${errMsg}`, isStreaming: false } : m),
@@ -375,7 +389,8 @@ export default function ChatApp() {
         return { ...c, messages: updated, title: getTitle(updated) };
       });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
+      const isTimeout = err instanceof Error && err.name === 'AbortError';
+      const msg = isTimeout ? 'Image request timed out. The service may be offline.' : (err instanceof Error ? err.message : 'Unknown error');
       updateConversation(convId, (c) => ({
         ...c,
         messages: c.messages.map((m) => m.id === placeholderId ? { ...m, content: `⚠️ ${msg}`, isStreaming: false } : m),
