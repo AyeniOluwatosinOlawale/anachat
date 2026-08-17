@@ -379,7 +379,8 @@ export default function ChatApp() {
         return;
       }
 
-      const imageUrl: string = data?.data?.[0]?.url ?? data?.data?.[0]?.b64_json ?? data?.url ?? '';
+      const d = data as { data?: { url?: string; b64_json?: string }[]; url?: string };
+      const imageUrl: string = d?.data?.[0]?.url ?? d?.data?.[0]?.b64_json ?? d?.url ?? '';
       const content = imageUrl ? '' : 'No image URL returned from the API.';
 
       updateConversation(convId, (c) => {
