@@ -382,11 +382,14 @@ export default function ChatApp() {
         const data = await res.json();
 
         if (!res.ok) {
+          const errMsg =
+            (data as { error?: string })?.error ??
+            `Image generation failed (${res.status})`;
           updateConversation(convId, (c) => ({
             ...c,
             messages: c.messages.map((m) =>
               m.id === placeholderId
-                ? { ...m, content: `Image generation failed: ${JSON.stringify(data)}`, isStreaming: false }
+                ? { ...m, content: `⚠️ ${errMsg}`, isStreaming: false }
                 : m
             ),
           }));
