@@ -15,6 +15,7 @@ interface Message {
   content: string;
   imageUrl?: string;
   isStreaming?: boolean;
+  isSearching?: boolean;
 }
 
 interface Conversation {
@@ -35,6 +36,14 @@ function getTitle(messages: Message[]): string {
   const first = messages.find((m) => m.role === 'user');
   if (!first) return 'New Chat';
   return first.content.slice(0, 40) + (first.content.length > 40 ? '…' : '');
+}
+
+// ─── Auto-detect queries that need live web data ──────────────────────────────
+
+const RECENCY_RE = /\b(current|currently|latest|recent|recently|today|tonight|this (week|month|year)|now|2024|2025|2026|breaking|live|update|news|just|happened|announce|who is|who are|what is the (current|latest|present)|governor|president|minister|prime minister|ceo|chairman|senator|congress|parliament|election|result|score|price|stock|weather|forecast|rate|exchange|inflation|gdp|coronavirus|covid|crisis|war|conflict|attack|disaster|earthquake|flood|fire)\b/i;
+
+function needsLiveData(query: string): boolean {
+  return RECENCY_RE.test(query);
 }
 
 // ─── Responsive hook ──────────────────────────────────────────────────────────
@@ -213,7 +222,7 @@ export default function ChatApp() {
   const [model, setModel] = useState<Model>('qwen');
   const [mode, setMode] = useState<Mode>('chat');
   const [input, setInput] = useState('');
-  const [webSearch, setWebSearch] = useState(false);
+  const [webSearch, setWebSearch] = useState(true);
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -279,8 +288,9 @@ export default function ChatApp() {
   const sendChat = useCallback(async (convId: string, allMessages: Message[], userMsg: Message) => {
     let apiMessages: { role: ApiRole; content: string }[] = allMessages.map((m) => ({ role: m.role, content: m.content }));
 
-    // Web search: fetch results and inject as system context
-    if (webSearch) {
+    // Web search: run when toggle is ON or query is auto-detected as needing live data
+    const shouldSearch = webSearch || needsLiveData(userMsg.content);
+    if (shouldSearch) {
       setSearching(true);
       try {
         const res = await fetch('/api/search', {
@@ -288,29 +298,37 @@ export default function ChatApp() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: userMsg.content }),
         });
-        const data = await res.json() as { results?: { title: string; url: string; snippet: string; age: string }[]; disabled?: boolean };
+        const data = await res.json() as { results?: { title: string; url: string; snippet: string; age: string }[] };
 
-        if (!data.disabled && data.results && data.results.length > 0) {
+        if (data.results && data.results.length > 0) {
           const today = new Date().toISOString().split('T')[0];
           const snippets = data.results
-            .map((r, i) => `[${i + 1}] ${r.title}\nURL: ${r.url}${r.age ? `\nDate: ${r.age}` : ''}\n${r.snippet}`)
+            .map((r, i) => `[${i + 1}] ${r.title}\nURL: ${r.url}${r.age ? `\nPublished: ${r.age}` : ''}\n${r.snippet}`)
             .join('\n\n');
 
           const systemMsg = {
             role: 'system' as const,
-            content: `Today's date is ${today}. You have access to the following recent web search results to help answer the user's question with up-to-date information. Cite sources where relevant using [1], [2], etc.\n\n${snippets}\n\nAnswer using this context combined with your knowledge.`,
+            content: `Today is ${today}. You have access to current web search results below. Use them to answer accurately with up-to-date information. Cite sources as [1], [2], etc. where relevant. If the search results directly answer the question, prioritise them over your training data.\n\nWEB SEARCH RESULTS:\n${snippets}`,
           };
           apiMessages = [systemMsg, ...apiMessages];
         }
-      } catch { /* silently continue without search results */ } finally {
+      } catch { /* continue without search if it fails */ } finally {
         setSearching(false);
       }
     }
 
     const placeholderId = generateId();
-    const placeholder: Message = { id: placeholderId, role: 'assistant', content: '', isStreaming: true };
+    const placeholder: Message = { id: placeholderId, role: 'assistant', content: '', isStreaming: true, isSearching: shouldSearch };
 
     updateConversation(convId, (c) => ({ ...c, messages: [...c.messages, userMsg, placeholder] }));
+
+    // Clear searching state on the bubble once we have results
+    if (shouldSearch) {
+      updateConversation(convId, (c) => ({
+        ...c,
+        messages: c.messages.map((m) => m.id === placeholderId ? { ...m, isSearching: false } : m),
+      }));
+    }
 
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -812,7 +830,9 @@ function MessageBubble({ message, isMobile }: { message: Message; isMobile: bool
         {message.isStreaming && !message.content && !message.imageUrl ? (
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <Spinner />
-            <span style={{ color: '#666', fontSize: 13 }}>Generating…</span>
+            <span style={{ color: '#666', fontSize: 13 }}>
+              {message.isSearching ? '🔍 Searching the web…' : 'Generating…'}
+            </span>
           </div>
         ) : message.imageUrl ? (
           <div>
