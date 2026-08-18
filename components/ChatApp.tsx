@@ -301,6 +301,8 @@ export default function ChatApp() {
 
     // Web search: run when toggle is ON or query is auto-detected as needing live data
     const shouldSearch = webSearch || needsLiveData(userMsg.content);
+    let directAnswer = ''; // filled when search returns a clean topFact
+
     if (shouldSearch) {
       setSearching(true);
       try {
@@ -314,37 +316,29 @@ export default function ChatApp() {
           topFact?: string;
         };
 
-        if (data.results && data.results.length > 0) {
-          const today = new Date().toISOString().split('T')[0];
-          const topFact = (data.topFact ?? '').trim();
+        const topFact = (data.topFact ?? '').trim();
 
+        if (topFact.length > 20) {
+          // We have a verified fact — skip the model entirely
+          directAnswer = topFact;
+        } else if (data.results && data.results.length > 0) {
+          // No clean topFact — fall back to model with supporting context
+          const today = new Date().toISOString().split('T')[0];
           const supporting = (data.results)
             .slice(0, 3)
             .map((r) => {
               const body = (r.content && r.content.length > 80 ? r.content.slice(0, 500) : r.snippet ?? '').trim();
-              return body ? `• ${r.title}: ${body}` : null;
+              return body ? `${r.title}: ${body}` : null;
             })
             .filter(Boolean)
-            .join('\n');
+            .join('\n\n');
 
-          const systemMsg = {
+          apiMessages = [{
             role: 'system' as const,
-            content: topFact
-              ? `Today is ${today}.
-
-The web search found this answer: "${topFact}"
-
-Your entire response must be exactly one sentence restating this fact. Do not write anything else — no notes, no background, no "based on", no caveats.`
-              : `Today is ${today}.
-
-Web search results:
-${supporting}
-
-Answer in one sentence using only the facts above. Do not add notes or caveats.`,
-          };
-          apiMessages = [systemMsg, ...apiMessages];
+            content: `Today is ${today}. Answer using only these search results in one direct sentence:\n\n${supporting}`,
+          }, ...apiMessages];
         }
-      } catch { /* continue without search if it fails */ } finally {
+      } catch { /* continue without search */ } finally {
         setSearching(false);
       }
     }
@@ -354,12 +348,16 @@ Answer in one sentence using only the facts above. Do not add notes or caveats.`
 
     updateConversation(convId, (c) => ({ ...c, messages: [...c.messages, userMsg, placeholder] }));
 
-    // Clear searching state on the bubble once we have results
-    if (shouldSearch) {
-      updateConversation(convId, (c) => ({
-        ...c,
-        messages: c.messages.map((m) => m.id === placeholderId ? { ...m, isSearching: false } : m),
-      }));
+    // ── Direct answer from search: skip the model ──────────────────────────
+    if (directAnswer) {
+      updateConversation(convId, (c) => {
+        const updated = c.messages.map((m) =>
+          m.id === placeholderId ? { ...m, content: directAnswer, isStreaming: false } : m
+        );
+        return { ...c, messages: updated, title: getTitle(updated) };
+      });
+      setLoading(false);
+      return;
     }
 
     const ctrl = new AbortController();
