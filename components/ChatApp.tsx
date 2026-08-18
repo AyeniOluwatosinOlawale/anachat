@@ -322,17 +322,19 @@ export default function ChatApp() {
 
           const systemMsg = {
             role: 'system' as const,
-            content: `Today is ${today}. You have live web search results below. Use them to answer.
+            content: `Today is ${today}.
 
-RULES:
-- Answer in 1–3 sentences. Be direct. State the fact immediately.
-- Do NOT explain your reasoning, mention your training cutoff, or show a "correction" process.
-- Do NOT say "based on my training data" or "as of my knowledge cutoff".
-- If the search result says X, just say X. Example: "The current President of Nigeria is Bola Tinubu, who took office in May 2023."
-- Only add a source link if it adds value — keep it short.
-- If the search results don't answer the question, say in one sentence: "I couldn't find current information on this."
+You are a factual assistant. Answer using ONLY the search results below. Do not use your training knowledge for any facts.
 
-LIVE WEB SEARCH RESULTS:
+FORMAT RULES — follow exactly:
+• Give a single direct answer in 1–2 sentences.
+• Start immediately with the answer. No preamble, no "based on", no "as of", no "correction".
+• WRONG: "Based on the latest real-time news, the president is..."
+• RIGHT: "The President of South Africa is Cyril Ramaphosa, in office since February 2018."
+• If search results do not contain the answer, respond only: "I couldn't find current information on this."
+• Never mention training data, knowledge cutoffs, or your own limitations.
+
+SEARCH RESULTS (use these facts only):
 ${blocks}`,
           };
           apiMessages = [systemMsg, ...apiMessages];
