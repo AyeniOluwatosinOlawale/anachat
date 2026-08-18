@@ -10,6 +10,12 @@ interface SearchResult {
   content: string;
 }
 
+// Extract 1–2 clean factual sentences from a Wikipedia extract
+function extractTopFact(extract: string): string {
+  const sentences = extract.match(/[^.!?]+[.!?]+/g) ?? [];
+  return sentences.slice(0, 2).join(' ').trim();
+}
+
 // ─── Wikipedia API — free, reliable, no key, works from any server ────────────
 
 async function searchWikipedia(query: string): Promise<SearchResult[]> {
@@ -145,7 +151,12 @@ export async function POST(req: NextRequest) {
   // Merge: Wikipedia first (most reliable for facts), then web results
   const results = [...wikiResults, ...webEnriched, ...webExtra];
 
-  return new Response(JSON.stringify({ results }), {
+  // Pre-extract the top fact so the model has a single sentence to work from
+  const topFact = wikiResults[0]?.content
+    ? extractTopFact(wikiResults[0].content)
+    : (webEnriched[0]?.snippet ? webEnriched[0].snippet.slice(0, 300) : '');
+
+  return new Response(JSON.stringify({ results, topFact }), {
     headers: { 'Content-Type': 'application/json', ...SECURITY_HEADERS },
   });
 }

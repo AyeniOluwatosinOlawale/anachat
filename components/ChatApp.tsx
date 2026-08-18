@@ -309,33 +309,38 @@ export default function ChatApp() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: userMsg.content }),
         });
-        const data = await res.json() as { results?: { title: string; url: string; snippet: string; age: string }[] };
+        const data = await res.json() as {
+          results?: { title: string; url: string; snippet?: string; content?: string }[];
+          topFact?: string;
+        };
 
         if (data.results && data.results.length > 0) {
           const today = new Date().toISOString().split('T')[0];
-          const blocks = (data.results as { title: string; url: string; snippet?: string; content?: string; age?: string }[])
-            .map((r, i) => {
-              const body = r.content && r.content.length > 100 ? r.content : r.snippet ?? '';
-              return `[${i + 1}] ${r.title}\nURL: ${r.url}${r.age ? `\nDate: ${r.age}` : ''}\n${body}`;
+          const topFact = (data.topFact ?? '').trim();
+
+          const supporting = (data.results)
+            .slice(0, 3)
+            .map((r) => {
+              const body = (r.content && r.content.length > 80 ? r.content.slice(0, 500) : r.snippet ?? '').trim();
+              return body ? `• ${r.title}: ${body}` : null;
             })
-            .join('\n\n---\n\n');
+            .filter(Boolean)
+            .join('\n');
 
           const systemMsg = {
             role: 'system' as const,
-            content: `Today is ${today}.
+            content: topFact
+              ? `Today is ${today}.
 
-You are a factual assistant. Answer using ONLY the search results below. Do not use your training knowledge for any facts.
+The web search found this answer: "${topFact}"
 
-FORMAT RULES — follow exactly:
-• Give a single direct answer in 1–2 sentences.
-• Start immediately with the answer. No preamble, no "based on", no "as of", no "correction".
-• WRONG: "Based on the latest real-time news, the president is..."
-• RIGHT: "The President of South Africa is Cyril Ramaphosa, in office since February 2018."
-• If search results do not contain the answer, respond only: "I couldn't find current information on this."
-• Never mention training data, knowledge cutoffs, or your own limitations.
+Your entire response must be exactly one sentence restating this fact. Do not write anything else — no notes, no background, no "based on", no caveats.`
+              : `Today is ${today}.
 
-SEARCH RESULTS (use these facts only):
-${blocks}`,
+Web search results:
+${supporting}
+
+Answer in one sentence using only the facts above. Do not add notes or caveats.`,
           };
           apiMessages = [systemMsg, ...apiMessages];
         }
