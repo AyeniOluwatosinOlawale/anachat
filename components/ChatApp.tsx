@@ -322,16 +322,17 @@ export default function ChatApp() {
 
           const systemMsg = {
             role: 'system' as const,
-            content: `Today is ${today}. Your training data has a knowledge cutoff and does NOT contain events, appointments, results, or facts from after early 2024. Everything after that cutoff — including who holds any position, current prices, recent events, election results, sports scores, and any news — must come from the web search results below, not from your memory.
+            content: `Today is ${today}. You have live web search results below. Use them to answer.
 
-STRICT RULES:
-1. For any fact about the real world (people, positions, events, prices, news, statistics): use ONLY the web search results provided. Do NOT rely on training data — it is outdated.
-2. If the search results clearly answer the question, state the answer directly and cite sources as [1], [2], etc.
-3. If the search results do NOT contain enough information, say: "I couldn't find up-to-date information on this. Please verify with a current source."
-4. NEVER invent, guess, or infer names of people in positions (governors, presidents, ministers, CEOs, etc.). If the result says "Babajide Sanwo-Olu is governor", say that — do not substitute another name.
-5. For coding, math, creative writing, or timeless concepts: use your knowledge normally.
+RULES:
+- Answer in 1–3 sentences. Be direct. State the fact immediately.
+- Do NOT explain your reasoning, mention your training cutoff, or show a "correction" process.
+- Do NOT say "based on my training data" or "as of my knowledge cutoff".
+- If the search result says X, just say X. Example: "The current President of Nigeria is Bola Tinubu, who took office in May 2023."
+- Only add a source link if it adds value — keep it short.
+- If the search results don't answer the question, say in one sentence: "I couldn't find current information on this."
 
-LIVE WEB SEARCH RESULTS (fetched right now):
+LIVE WEB SEARCH RESULTS:
 ${blocks}`,
           };
           apiMessages = [systemMsg, ...apiMessages];
