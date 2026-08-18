@@ -302,13 +302,27 @@ export default function ChatApp() {
 
         if (data.results && data.results.length > 0) {
           const today = new Date().toISOString().split('T')[0];
-          const snippets = data.results
-            .map((r, i) => `[${i + 1}] ${r.title}\nURL: ${r.url}${r.age ? `\nPublished: ${r.age}` : ''}\n${r.snippet}`)
-            .join('\n\n');
+          const blocks = (data.results as { title: string; url: string; snippet?: string; content?: string; age?: string }[])
+            .map((r, i) => {
+              const body = r.content && r.content.length > 100 ? r.content : r.snippet ?? '';
+              return `[${i + 1}] ${r.title}\nURL: ${r.url}${r.age ? `\nDate: ${r.age}` : ''}\n${body}`;
+            })
+            .join('\n\n---\n\n');
 
           const systemMsg = {
             role: 'system' as const,
-            content: `Today is ${today}. You have access to current web search results below. Use them to answer accurately with up-to-date information. Cite sources as [1], [2], etc. where relevant. If the search results directly answer the question, prioritise them over your training data.\n\nWEB SEARCH RESULTS:\n${snippets}`,
+            content: `Today is ${today}.
+
+STRICT INSTRUCTIONS:
+- You have been given live web search results below.
+- For ANY question about current events, people in positions (governors, presidents, ministers, CEOs, etc.), recent news, scores, prices, or anything time-sensitive: you MUST answer ONLY from the search results provided.
+- Do NOT use your training data for facts that may have changed. Your training data is outdated and WILL be wrong for current office holders.
+- If the search results contain the answer, state it directly and cite the source as [1], [2], etc.
+- If the search results do NOT contain the answer, say: "I couldn't find current information about this in my search results."
+- Never guess, infer, or fabricate names, dates, or positions.
+
+LIVE WEB SEARCH RESULTS:
+${blocks}`,
           };
           apiMessages = [systemMsg, ...apiMessages];
         }
