@@ -7,6 +7,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 type Mode = 'chat' | 'image';
 type Model = 'phi-4' | 'qwen';
 type Role = 'user' | 'assistant';
+type ApiRole = 'user' | 'assistant' | 'system';
 
 interface Message {
   id: string;
@@ -168,6 +169,16 @@ function CloseIcon() {
   );
 }
 
+function GlobeIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  );
+}
+
 function Spinner() {
   return (
     <span style={{ display: 'inline-block', width: 18, height: 18, border: '2px solid #444', borderTopColor: '#7c3aed', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
@@ -202,6 +213,8 @@ export default function ChatApp() {
   const [model, setModel] = useState<Model>('qwen');
   const [mode, setMode] = useState<Mode>('chat');
   const [input, setInput] = useState('');
+  const [webSearch, setWebSearch] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -264,7 +277,36 @@ export default function ChatApp() {
   // ─── Chat send ─────────────────────────────────────────────────────────────
 
   const sendChat = useCallback(async (convId: string, allMessages: Message[], userMsg: Message) => {
-    const apiMessages = allMessages.map((m) => ({ role: m.role, content: m.content }));
+    let apiMessages: { role: ApiRole; content: string }[] = allMessages.map((m) => ({ role: m.role, content: m.content }));
+
+    // Web search: fetch results and inject as system context
+    if (webSearch) {
+      setSearching(true);
+      try {
+        const res = await fetch('/api/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: userMsg.content }),
+        });
+        const data = await res.json() as { results?: { title: string; url: string; snippet: string; age: string }[]; disabled?: boolean };
+
+        if (!data.disabled && data.results && data.results.length > 0) {
+          const today = new Date().toISOString().split('T')[0];
+          const snippets = data.results
+            .map((r, i) => `[${i + 1}] ${r.title}\nURL: ${r.url}${r.age ? `\nDate: ${r.age}` : ''}\n${r.snippet}`)
+            .join('\n\n');
+
+          const systemMsg = {
+            role: 'system' as const,
+            content: `Today's date is ${today}. You have access to the following recent web search results to help answer the user's question with up-to-date information. Cite sources where relevant using [1], [2], etc.\n\n${snippets}\n\nAnswer using this context combined with your knowledge.`,
+          };
+          apiMessages = [systemMsg, ...apiMessages];
+        }
+      } catch { /* silently continue without search results */ } finally {
+        setSearching(false);
+      }
+    }
+
     const placeholderId = generateId();
     const placeholder: Message = { id: placeholderId, role: 'assistant', content: '', isStreaming: true };
 
@@ -337,7 +379,7 @@ export default function ChatApp() {
       abortRef.current = null;
       setLoading(false);
     }
-  }, [model, updateConversation]);
+  }, [model, webSearch, updateConversation]);
 
   // ─── Image generation ──────────────────────────────────────────────────────
 
@@ -503,6 +545,25 @@ export default function ChatApp() {
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Web search toggle (mobile sidebar) */}
+      {isMobile && mode === 'chat' && (
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #2a2a2a' }}>
+          <p style={{ fontSize: 11, color: '#555', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Web Search</p>
+          <button
+            onClick={() => setWebSearch((v) => !v)}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: webSearch ? '#052e16' : '#111', border: `1px solid ${webSearch ? '#16a34a' : '#2a2a2a'}`, borderRadius: 10, color: webSearch ? '#4ade80' : '#888', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <GlobeIcon size={15} />
+              Search the web for latest info
+            </span>
+            <span style={{ width: 36, height: 20, borderRadius: 10, background: webSearch ? '#16a34a' : '#2a2a2a', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+              <span style={{ position: 'absolute', top: 2, left: webSearch ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+            </span>
+          </button>
         </div>
       )}
 
@@ -672,13 +733,26 @@ export default function ChatApp() {
         {/* Input area */}
         <div style={{ borderTop: '1px solid #2a2a2a', padding: isMobile ? '10px 12px' : '16px 20px', background: '#0f0f0f', flexShrink: 0, paddingBottom: `calc(${isMobile ? '10px' : '16px'} + env(safe-area-inset-bottom, 0px))` }}>
           <div style={{ maxWidth: isMobile ? '100%' : 760, margin: '0 auto' }}>
-            {/* Mode badge */}
+            {/* Mode badge + web search toggle */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: mode === 'image' ? '#1a0a2e' : '#1a1a2e', color: mode === 'image' ? '#c084fc' : '#818cf8', border: `1px solid ${mode === 'image' ? '#6d28d9' : '#3730a3'}`, borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 600 }}>
                 {mode === 'image' ? <ImageIcon size={11} /> : <ChatIcon size={11} />}
                 {mode === 'image' ? 'Image Generation' : 'Chat'}
               </span>
               {!isMobile && <span style={{ color: '#444', fontSize: 11 }}>{model}</span>}
+
+              {/* Web search toggle — only relevant in chat mode */}
+              {mode === 'chat' && (
+                <button
+                  onClick={() => setWebSearch((v) => !v)}
+                  title={webSearch ? 'Web search ON — click to disable' : 'Enable web search for latest info'}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, border: `1px solid ${webSearch ? '#16a34a' : '#2a2a2a'}`, background: webSearch ? '#052e16' : 'transparent', color: webSearch ? '#4ade80' : '#555', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  <GlobeIcon size={11} />
+                  {searching ? 'Searching…' : 'Web Search'}
+                  {webSearch && !searching && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', display: 'inline-block' }} />}
+                </button>
+              )}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: isMobile ? 16 : 14, padding: isMobile ? '10px 12px' : '10px 14px' }}>
