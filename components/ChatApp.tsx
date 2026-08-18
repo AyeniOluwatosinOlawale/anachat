@@ -199,7 +199,7 @@ function Logo({ size = 20 }: { size?: number }) {
 export default function ChatApp() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [model, setModel] = useState<Model>('phi-4');
+  const [model, setModel] = useState<Model>('qwen');
   const [mode, setMode] = useState<Mode>('chat');
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
