@@ -40,10 +40,21 @@ function getTitle(messages: Message[]): string {
 
 // ─── Auto-detect queries that need live web data ──────────────────────────────
 
-const RECENCY_RE = /\b(current|currently|latest|recent|recently|today|tonight|this (week|month|year)|now|2024|2025|2026|breaking|live|update|news|just|happened|announce|who is|who are|what is the (current|latest|present)|governor|president|minister|prime minister|ceo|chairman|senator|congress|parliament|election|result|score|price|stock|weather|forecast|rate|exchange|inflation|gdp|coronavirus|covid|crisis|war|conflict|attack|disaster|earthquake|flood|fire)\b/i;
+// Queries that are clearly self-contained (no web needed even if factual-sounding)
+const SKIP_RE = /^(write|draft|compose|create a|generate a|make a|give me a|tell me a|explain how to|how do i|how to|what is the difference between|define |calculate |convert |translate |fix (this|my)|debug|refactor|code |implement |build |poem|story|joke|essay|recipe)\b/i;
+
+// Strong signal: explicitly time-sensitive
+const STRONG_RE = /\b(current(ly)?|latest|recent(ly)?|today|tonight|right now|this (week|month|year)|2024|2025|2026|breaking|live|just (announced?|happened|released?)|update[ds]?|news|governor|president|prime minister|minister|senator|congressman|parliament|ceo|chairman|founder|head of|leader of|election|vote|result|score|standings|ranking|price|cost|worth|stock|market|crypto|bitcoin|ethereum|weather|forecast|temperature|rate|exchange rate|inflation|gdp|population|covid|coronavirus|war|conflict|attack|disaster|earthquake|flood|fire|arrest|death|born|died|killed|appointed|resigned|retired|won|lost|launched|released|announced)\b/i;
+
+// Factual question starters — likely need real-world data
+const FACTUAL_Q_RE = /^(who (is|are|was|were)|what (is|are|was|were|happened|did)|when (is|was|did|will)|where (is|are|was|were)|which (is|are|was|were)|how (many|much|old|long|tall|big|far)|is (there|it|he|she|they)|are (there|they)|did |does |has |have |will |was |were )/i;
 
 function needsLiveData(query: string): boolean {
-  return RECENCY_RE.test(query);
+  const q = query.trim();
+  if (SKIP_RE.test(q)) return false;          // clearly non-factual task
+  if (STRONG_RE.test(q)) return true;          // explicit recency signal
+  if (FACTUAL_Q_RE.test(q)) return true;       // factual question about the world
+  return false;
 }
 
 // ─── Responsive hook ──────────────────────────────────────────────────────────
@@ -311,17 +322,16 @@ export default function ChatApp() {
 
           const systemMsg = {
             role: 'system' as const,
-            content: `Today is ${today}.
+            content: `Today is ${today}. Your training data has a knowledge cutoff and does NOT contain events, appointments, results, or facts from after early 2024. Everything after that cutoff — including who holds any position, current prices, recent events, election results, sports scores, and any news — must come from the web search results below, not from your memory.
 
-STRICT INSTRUCTIONS:
-- You have been given live web search results below.
-- For ANY question about current events, people in positions (governors, presidents, ministers, CEOs, etc.), recent news, scores, prices, or anything time-sensitive: you MUST answer ONLY from the search results provided.
-- Do NOT use your training data for facts that may have changed. Your training data is outdated and WILL be wrong for current office holders.
-- If the search results contain the answer, state it directly and cite the source as [1], [2], etc.
-- If the search results do NOT contain the answer, say: "I couldn't find current information about this in my search results."
-- Never guess, infer, or fabricate names, dates, or positions.
+STRICT RULES:
+1. For any fact about the real world (people, positions, events, prices, news, statistics): use ONLY the web search results provided. Do NOT rely on training data — it is outdated.
+2. If the search results clearly answer the question, state the answer directly and cite sources as [1], [2], etc.
+3. If the search results do NOT contain enough information, say: "I couldn't find up-to-date information on this. Please verify with a current source."
+4. NEVER invent, guess, or infer names of people in positions (governors, presidents, ministers, CEOs, etc.). If the result says "Babajide Sanwo-Olu is governor", say that — do not substitute another name.
+5. For coding, math, creative writing, or timeless concepts: use your knowledge normally.
 
-LIVE WEB SEARCH RESULTS:
+LIVE WEB SEARCH RESULTS (fetched right now):
 ${blocks}`,
           };
           apiMessages = [systemMsg, ...apiMessages];
