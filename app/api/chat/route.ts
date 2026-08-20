@@ -49,8 +49,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (!upstream.ok) {
-    const text = await upstream.text();
-    return errorResponse(`Upstream error: ${upstream.status} — ${text}`, upstream.status);
+    const status = upstream.status;
+    if (status === 502 || status === 503 || status === 504) {
+      return errorResponse('The AI model server is currently offline. Please try again later.', status);
+    }
+    return errorResponse(`Model server returned an error (${status}). Please try again.`, status);
   }
 
   return new Response(upstream.body, {
