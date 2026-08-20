@@ -234,7 +234,7 @@ export default function ChatApp() {
   const [model, setModel] = useState<Model>('qwen');
   const [mode, setMode] = useState<Mode>('chat');
   const [input, setInput] = useState('');
-  const [webSearch, setWebSearch] = useState(true);
+  const [webSearch, setWebSearch] = useState(false);
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -794,7 +794,7 @@ export default function ChatApp() {
               {mode === 'chat' && (
                 <button
                   onClick={() => setWebSearch((v) => !v)}
-                  title={webSearch ? 'Web search ON — click to disable' : 'Enable web search for latest info'}
+                  title={webSearch ? 'Force search ON (all queries will search) — click to use auto' : 'Auto-search active — click to force search on all queries'}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, border: `1px solid ${webSearch ? '#16a34a' : '#2a2a2a'}`, background: webSearch ? '#052e16' : 'transparent', color: webSearch ? '#4ade80' : '#555', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
                 >
                   <GlobeIcon size={11} />
