@@ -790,16 +790,16 @@ export default function ChatApp() {
               </span>
               {!isMobile && <span style={{ color: '#444', fontSize: 11 }}>{model}</span>}
 
-              {/* Web search toggle — only relevant in chat mode */}
+              {/* Web search toggle — lights up automatically when query needs live data */}
               {mode === 'chat' && (
                 <button
                   onClick={() => setWebSearch((v) => !v)}
-                  title={webSearch ? 'Force search ON (all queries will search) — click to use auto' : 'Auto-search active — click to force search on all queries'}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, border: `1px solid ${webSearch ? '#16a34a' : '#2a2a2a'}`, background: webSearch ? '#052e16' : 'transparent', color: webSearch ? '#4ade80' : '#555', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+                  title={webSearch ? 'Search forced ON — click to use auto-detect' : needsLiveData(input) ? 'Will search the web (query needs live data)' : 'Click to force web search on all queries'}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, border: `1px solid ${(webSearch || needsLiveData(input) || searching) ? '#16a34a' : '#2a2a2a'}`, background: (webSearch || needsLiveData(input) || searching) ? '#052e16' : 'transparent', color: (webSearch || needsLiveData(input) || searching) ? '#4ade80' : '#555', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
                 >
                   <GlobeIcon size={11} />
                   {searching ? 'Searching…' : 'Web Search'}
-                  {webSearch && !searching && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', display: 'inline-block' }} />}
+                  {(webSearch || needsLiveData(input) || searching) && !searching && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', display: 'inline-block' }} />}
                 </button>
               )}
             </div>
