@@ -41,7 +41,7 @@ function getTitle(messages: Message[]): string {
 // ─── Auto-detect queries that need live web data ──────────────────────────────
 
 // Queries that are clearly self-contained (no web needed even if factual-sounding)
-const SKIP_RE = /^(write|draft|compose|create a|generate a|make a|give me a|tell me a|explain how to|how do i|how to|what is the difference between|define |calculate |convert |translate |fix (this|my)|debug|refactor|code |implement |build |poem|story|joke|essay|recipe)\b/i;
+const SKIP_RE = /^(write|draft|compose|create a|generate a|make a|give me a|tell me a|explain how to|how do i|how to|what is the difference between|define |calculate |convert |translate |fix (this|my)|debug|refactor|code |implement |build |poem|story|joke|essay|recipe|hello|hi|hey|good morning|good afternoon|good evening|good night|how are you|how're you|what's up|sup |yo |thanks|thank you|ok|okay|sure|nice|cool|great|awesome|lol|haha|bye|goodbye|see you)\b/i;
 
 // Strong signal: explicitly time-sensitive
 const STRONG_RE = /\b(current(ly)?|latest|recent(ly)?|today|tonight|right now|this (week|month|year)|2024|2025|2026|breaking|live|just (announced?|happened|released?)|update[ds]?|news|governor|president|prime minister|minister|senator|congressman|parliament|ceo|chairman|founder|head of|leader of|election|vote|result|score|standings|ranking|price|cost|worth|stock|market|crypto|bitcoin|ethereum|weather|forecast|temperature|rate|exchange rate|inflation|gdp|population|covid|coronavirus|war|conflict|attack|disaster|earthquake|flood|fire|arrest|death|born|died|killed|appointed|resigned|retired|won|lost|launched|released|announced)\b/i;
@@ -51,7 +51,8 @@ const FACTUAL_Q_RE = /^(who (is|are|was|were)|what (is|are|was|were|happened|did
 
 function needsLiveData(query: string): boolean {
   const q = query.trim();
-  if (SKIP_RE.test(q)) return false;          // clearly non-factual task
+  if (q.length < 12) return false;             // too short to be a factual query
+  if (SKIP_RE.test(q)) return false;           // conversational or clearly non-factual
   if (STRONG_RE.test(q)) return true;          // explicit recency signal
   if (FACTUAL_Q_RE.test(q)) return true;       // factual question about the world
   return false;
