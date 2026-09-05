@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 
 // ─── Allowed models ───────────────────────────────────────────────────────────
-const ALLOWED_CHAT_MODELS = new Set(['phi-4', 'qwen']);
+const ALLOWED_CHAT_MODELS = new Set(['phi-4', 'qwen', 'gpt-6-astra', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo']);
 const ALLOWED_IMAGE_SIZES = new Set(['256x256', '512x512', '1024x1024']);
 
 // ─── Limits ───────────────────────────────────────────────────────────────────

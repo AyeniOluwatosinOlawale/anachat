@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Mode = 'chat' | 'image';
-type Model = 'phi-4' | 'qwen';
+type Model = 'phi-4' | 'qwen' | 'gpt-6-astra' | 'gpt-4o' | 'gpt-4o-mini';
 type Role = 'user' | 'assistant';
 type ApiRole = 'user' | 'assistant' | 'system';
 
@@ -584,11 +584,11 @@ export default function ChatApp() {
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #2a2a2a' }}>
           <p style={{ fontSize: 11, color: '#555', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Model</p>
           <div style={{ display: 'flex', gap: 8 }}>
-            {(['phi-4', 'qwen'] as Model[]).map((m) => (
+            {(['qwen', 'phi-4', 'gpt-6-astra', 'gpt-4o', 'gpt-4o-mini'] as Model[]).map((m) => (
               <button
                 key={m}
                 onClick={() => setModel(m)}
-                style={{ flex: 1, padding: '10px 0', background: model === m ? '#1a0a2e' : '#111', color: model === m ? '#c084fc' : '#888', border: `1px solid ${model === m ? '#6d28d9' : '#2a2a2a'}`, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                style={{ flex: 1, padding: '10px 0', background: model === m ? '#1a0a2e' : '#111', color: model === m ? '#c084fc' : '#888', border: `1px solid ${model === m ? '#6d28d9' : '#2a2a2a'}`, borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
               >
                 {m}
               </button>
@@ -726,8 +726,15 @@ export default function ChatApp() {
               onChange={(e) => setModel(e.target.value as Model)}
               style={{ background: '#1a1a1a', color: '#ededed', border: '1px solid #2a2a2a', borderRadius: 8, padding: '7px 12px', fontSize: 13, cursor: 'pointer', outline: 'none' }}
             >
-              <option value="phi-4">phi-4</option>
-              <option value="qwen">qwen</option>
+              <optgroup label="Local Models">
+                <option value="qwen">qwen</option>
+                <option value="phi-4">phi-4</option>
+              </optgroup>
+              <optgroup label="OpenAI">
+                <option value="gpt-6-astra">gpt-6-astra</option>
+                <option value="gpt-4o">gpt-4o</option>
+                <option value="gpt-4o-mini">gpt-4o-mini</option>
+              </optgroup>
             </select>
           )}
 
