@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Mode = 'chat' | 'image';
-type Model = 'phi-4' | 'qwen' | 'gpt-6-astra' | 'gpt-4o' | 'gpt-4o-mini';
+type Model = 'phi-4' | 'qwen' | 'embeddinggemma-2' | 'gpt-6-astra' | 'gpt-4o' | 'gpt-4o-mini';
 type Role = 'user' | 'assistant';
 type ApiRole = 'user' | 'assistant' | 'system';
 
@@ -361,6 +361,38 @@ export default function ChatApp() {
       return;
     }
 
+    // ── EmbeddingGemma 2: return semantic embedding info ──────────────────────
+    if (model === 'embeddinggemma-2') {
+      try {
+        const res = await fetch('/api/embeddings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': 'zuFw3OLTYYkpsLkH8RfsGhZzHeDpGW9rK5HxV_ybz3A',
+          },
+          body: JSON.stringify({ input: userMsg.content }),
+        });
+        const data = await res.json() as { data?: { embedding: number[] }[]; model?: string };
+        const vec = data?.data?.[0]?.embedding ?? [];
+        const preview = vec.slice(0, 8).map((v: number) => v.toFixed(4)).join(', ');
+        const norm = Math.sqrt(vec.reduce((s: number, v: number) => s + v * v, 0)).toFixed(6);
+        const result = `**EmbeddingGemma 2** — semantic embedding generated\n\n- **Dimensions:** ${vec.length}\n- **L2 norm:** ${norm}\n- **First 8 values:** \`[${preview}, …]\`\n\n> This text has been encoded into a ${vec.length}-dimensional vector. Use it for semantic search, similarity comparison, or RAG pipelines.`;
+        updateConversation(convId, (c) => {
+          const updated = c.messages.map((m) =>
+            m.id === placeholderId ? { ...m, content: result, isStreaming: false } : m
+          );
+          return { ...c, messages: updated, title: getTitle(updated) };
+        });
+      } catch {
+        updateConversation(convId, (c) => ({
+          ...c,
+          messages: c.messages.map((m) => m.id === placeholderId ? { ...m, content: '⚠️ Embedding server unreachable.', isStreaming: false } : m),
+        }));
+      }
+      setLoading(false);
+      return;
+    }
+
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
@@ -584,7 +616,7 @@ export default function ChatApp() {
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #2a2a2a' }}>
           <p style={{ fontSize: 11, color: '#555', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Model</p>
           <div style={{ display: 'flex', gap: 8 }}>
-            {(['qwen', 'phi-4', 'gpt-6-astra', 'gpt-4o', 'gpt-4o-mini'] as Model[]).map((m) => (
+            {(['qwen', 'phi-4', 'embeddinggemma-2', 'gpt-6-astra', 'gpt-4o', 'gpt-4o-mini'] as Model[]).map((m) => (
               <button
                 key={m}
                 onClick={() => setModel(m)}
@@ -729,6 +761,7 @@ export default function ChatApp() {
               <optgroup label="Local Models">
                 <option value="qwen">qwen</option>
                 <option value="phi-4">phi-4</option>
+                <option value="embeddinggemma-2">EmbeddingGemma 2</option>
               </optgroup>
               <optgroup label="OpenAI">
                 <option value="gpt-6-astra">gpt-6-astra</option>
