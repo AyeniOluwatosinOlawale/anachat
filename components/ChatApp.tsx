@@ -234,8 +234,7 @@ export default function ChatApp() {
   const [model, setModel] = useState<Model>('AnaModel');
   const [mode, setMode] = useState<Mode>('chat');
   const [input, setInput] = useState('');
-  const [webSearch, setWebSearch] = useState(false);
-  const [searching, setSearching] = useState(false);
+  const [searching] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -300,66 +299,10 @@ export default function ChatApp() {
   const sendChat = useCallback(async (convId: string, allMessages: Message[], userMsg: Message) => {
     let apiMessages: { role: ApiRole; content: string }[] = allMessages.map((m) => ({ role: m.role, content: m.content }));
 
-    // Web search: run when toggle is ON or query is auto-detected as needing live data
-    const shouldSearch = webSearch || needsLiveData(userMsg.content);
-    let directAnswer = ''; // filled when search returns a clean topFact
-
-    if (shouldSearch) {
-      setSearching(true);
-      try {
-        const res = await fetch('/api/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: userMsg.content }),
-        });
-        const data = await res.json() as {
-          results?: { title: string; url: string; snippet?: string; content?: string }[];
-          topFact?: string;
-        };
-
-        const topFact = (data.topFact ?? '').trim();
-
-        if (topFact.length > 20 && needsLiveData(userMsg.content)) {
-          // Only bypass the model when the query genuinely needs live data
-          directAnswer = topFact;
-        } else if (data.results && data.results.length > 0) {
-          // No clean topFact — fall back to model with supporting context
-          const today = new Date().toISOString().split('T')[0];
-          const supporting = (data.results)
-            .slice(0, 3)
-            .map((r) => {
-              const body = (r.content && r.content.length > 80 ? r.content.slice(0, 500) : r.snippet ?? '').trim();
-              return body ? `${r.title}: ${body}` : null;
-            })
-            .filter(Boolean)
-            .join('\n\n');
-
-          apiMessages = [{
-            role: 'system' as const,
-            content: `Today is ${today}. Answer using only these search results in one direct sentence:\n\n${supporting}`,
-          }, ...apiMessages];
-        }
-      } catch { /* continue without search */ } finally {
-        setSearching(false);
-      }
-    }
-
     const placeholderId = generateId();
-    const placeholder: Message = { id: placeholderId, role: 'assistant', content: '', isStreaming: true, isSearching: shouldSearch };
+    const placeholder: Message = { id: placeholderId, role: 'assistant', content: '', isStreaming: true };
 
     updateConversation(convId, (c) => ({ ...c, messages: [...c.messages, userMsg, placeholder] }));
-
-    // ── Direct answer from search: skip the model ──────────────────────────
-    if (directAnswer) {
-      updateConversation(convId, (c) => {
-        const updated = c.messages.map((m) =>
-          m.id === placeholderId ? { ...m, content: directAnswer, isStreaming: false } : m
-        );
-        return { ...c, messages: updated, title: getTitle(updated) };
-      });
-      setLoading(false);
-      return;
-    }
 
     // ── EmbeddingGemma 2: return semantic embedding info ──────────────────────
     if (model === 'embeddinggemma-2') {
@@ -460,7 +403,7 @@ export default function ChatApp() {
       abortRef.current = null;
       setLoading(false);
     }
-  }, [model, webSearch, updateConversation]);
+  }, [model, updateConversation]);
 
   // ─── Image generation ──────────────────────────────────────────────────────
 
@@ -629,24 +572,6 @@ export default function ChatApp() {
         </div>
       )}
 
-      {/* Web search toggle (mobile sidebar) */}
-      {isMobile && mode === 'chat' && (
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #2a2a2a' }}>
-          <p style={{ fontSize: 11, color: '#555', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Web Search</p>
-          <button
-            onClick={() => setWebSearch((v) => !v)}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: webSearch ? '#052e16' : '#111', border: `1px solid ${webSearch ? '#16a34a' : '#2a2a2a'}`, borderRadius: 10, color: webSearch ? '#4ade80' : '#888', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <GlobeIcon size={15} />
-              Search the web for latest info
-            </span>
-            <span style={{ width: 36, height: 20, borderRadius: 10, background: webSearch ? '#16a34a' : '#2a2a2a', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-              <span style={{ position: 'absolute', top: 2, left: webSearch ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
-            </span>
-          </button>
-        </div>
-      )}
 
       {/* Conversation history */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
@@ -829,18 +754,6 @@ export default function ChatApp() {
               </span>
               {!isMobile && <span style={{ color: '#444', fontSize: 11 }}>{model}</span>}
 
-              {/* Web search toggle — lights up automatically when query needs live data */}
-              {mode === 'chat' && (
-                <button
-                  onClick={() => setWebSearch((v) => !v)}
-                  title={webSearch ? 'Search forced ON — click to use auto-detect' : needsLiveData(input) ? 'Will search the web (query needs live data)' : 'Click to force web search on all queries'}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, border: `1px solid ${(webSearch || needsLiveData(input) || searching) ? '#16a34a' : '#2a2a2a'}`, background: (webSearch || needsLiveData(input) || searching) ? '#052e16' : 'transparent', color: (webSearch || needsLiveData(input) || searching) ? '#4ade80' : '#555', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
-                >
-                  <GlobeIcon size={11} />
-                  {searching ? 'Searching…' : 'Web Search'}
-                  {(webSearch || needsLiveData(input) || searching) && !searching && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', display: 'inline-block' }} />}
-                </button>
-              )}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: isMobile ? 16 : 14, padding: isMobile ? '10px 12px' : '10px 14px' }}>
