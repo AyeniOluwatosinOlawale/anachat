@@ -74,7 +74,13 @@ function useIsMobile(): boolean {
 
 // ─── Text Renderer ────────────────────────────────────────────────────────────
 
+// Strip <think>...</think> blocks before rendering
+function stripThinking(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>\n*/g, '').trimStart();
+}
+
 function renderText(text: string): React.ReactNode[] {
+  text = stripThinking(text);
   const nodes: React.ReactNode[] = [];
   const parts = text.split(/(```[\s\S]*?```)/g);
 
