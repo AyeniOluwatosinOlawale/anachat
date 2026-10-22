@@ -14,8 +14,9 @@ export const runtime = 'nodejs';
 const RESPONSES_API_MODELS = new Set(['gpt-6-astra']);
 const CHAT_COMPLETIONS_MODELS = new Set(['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo']);
 
-// Strip <think>...</think> blocks from streaming SSE content.
-// qwen3 models output reasoning inside these tags before the actual answer.
+// Strip <think>...</think> from the stream.
+// Strategy: buffer all content until </think> is seen, then stream everything after it.
+// If no think block exists, emit everything on [DONE].
 function stripThinkingStream(body: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
@@ -24,53 +25,20 @@ function stripThinkingStream(body: ReadableStream<Uint8Array>): ReadableStream<U
     async start(controller) {
       const reader = body.getReader();
       let lineBuffer = '';
-      let inThink = false;
-      let pending = ''; // partial tag buffer to handle chunks that split a tag
+      let thinkDone = false;   // true once </think> has been found
+      let accumulated = '';    // buffer while still inside/before think block
 
-      const flush = (content: string) => {
+      const emit = (content: string) => {
         if (!content) return;
-        // Emit as a minimal SSE chunk the frontend can parse
         const chunk = { choices: [{ delta: { content }, finish_reason: null }] };
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
-      };
-
-      const processContent = (raw: string) => {
-        pending += raw;
-        let out = '';
-
-        while (pending.length > 0) {
-          if (inThink) {
-            const end = pending.indexOf('</think>');
-            if (end !== -1) {
-              inThink = false;
-              pending = pending.slice(end + '</think>'.length);
-              // skip one leading newline after </think>
-              if (pending.startsWith('\n')) pending = pending.slice(1);
-            } else {
-              pending = '';
-            }
-          } else {
-            const start = pending.indexOf('<think>');
-            if (start !== -1) {
-              out += pending.slice(0, start);
-              inThink = true;
-              pending = pending.slice(start + '<think>'.length);
-            } else {
-              // No open tag — safe to emit all but last 6 chars (partial '<think' risk)
-              const safe = pending.length > 7 ? pending.length - 7 : 0;
-              out += pending.slice(0, safe);
-              pending = pending.slice(safe);
-              break;
-            }
-          }
-        }
-        flush(out);
       };
 
       try {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+
           lineBuffer += decoder.decode(value, { stream: true });
           const lines = lineBuffer.split('\n');
           lineBuffer = lines.pop() ?? '';
@@ -78,20 +46,33 @@ function stripThinkingStream(body: ReadableStream<Uint8Array>): ReadableStream<U
           for (const line of lines) {
             if (!line.startsWith('data: ')) continue;
             const data = line.slice(6).trim();
+
             if (data === '[DONE]') {
-              // flush pending
-              if (!inThink && pending) flush(pending);
+              // If model never had a think block, flush everything accumulated
+              if (!thinkDone && accumulated) emit(accumulated);
               controller.enqueue(encoder.encode('data: [DONE]\n\n'));
               continue;
             }
+
             try {
-              const chunk = JSON.parse(data) as { choices?: { delta?: { content?: string }; finish_reason?: string | null }[] };
+              const chunk = JSON.parse(data) as { choices?: { delta?: { content?: string } }[] };
               const content = chunk.choices?.[0]?.delta?.content;
-              if (content) {
-                processContent(content);
+              if (!content) continue;
+
+              if (thinkDone) {
+                // Past the think block — stream directly
+                emit(content);
               } else {
-                // pass non-content chunks (finish_reason etc) through
-                controller.enqueue(encoder.encode(line + '\n'));
+                accumulated += content;
+                const endIdx = accumulated.indexOf('</think>');
+                if (endIdx !== -1) {
+                  thinkDone = true;
+                  // Emit only the part after </think>, stripping leading newlines
+                  const after = accumulated.slice(endIdx + 8).replace(/^\n+/, '');
+                  accumulated = '';
+                  emit(after);
+                }
+                // else: still inside think block, keep buffering
               }
             } catch { /* skip malformed */ }
           }
@@ -155,7 +136,7 @@ export async function POST(req: NextRequest) {
   const payload = sanitizeChatPayload(body);
   const model = body.model as string;
   const isOpenAI = RESPONSES_API_MODELS.has(model) || CHAT_COMPLETIONS_MODELS.has(model);
-  const isThinkingModel = model.startsWith('qwen3');
+  const isThinkingModel = model.startsWith('qwen3') || model === 'AnaModel';
 
   let upstream: Response;
   let useResponsesApi = false;
