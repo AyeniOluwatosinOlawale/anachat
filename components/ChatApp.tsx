@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Mode = 'chat' | 'image';
-type Model = 'phi-4' | 'qwen' | 'qwen3-vllm' | 'embeddinggemma-2' | 'gpt-6-astra' | 'gpt-4o' | 'gpt-4o-mini';
+type Model = 'qwen3-vllm' | 'embeddinggemma-2' | 'gpt-6-astra' | 'gpt-4o' | 'gpt-4o-mini';
 type Role = 'user' | 'assistant';
 type ApiRole = 'user' | 'assistant' | 'system';
 
@@ -616,7 +616,7 @@ export default function ChatApp() {
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #2a2a2a' }}>
           <p style={{ fontSize: 11, color: '#555', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Model</p>
           <div style={{ display: 'flex', gap: 8 }}>
-            {(['qwen3-vllm', 'qwen', 'phi-4', 'embeddinggemma-2', 'gpt-6-astra', 'gpt-4o', 'gpt-4o-mini'] as Model[]).map((m) => (
+            {(['qwen3-vllm', 'embeddinggemma-2', 'gpt-6-astra', 'gpt-4o', 'gpt-4o-mini'] as Model[]).map((m) => (
               <button
                 key={m}
                 onClick={() => setModel(m)}
@@ -760,9 +760,7 @@ export default function ChatApp() {
             >
               <optgroup label="Local Models">
                 <option value="qwen3-vllm">qwen3-vllm</option>
-                <option value="qwen">qwen</option>
-                <option value="phi-4">phi-4</option>
-                <option value="embeddinggemma-2">EmbeddingGemma 2</option>
+                <option value="embeddinggemma-2">embeddinggemma-2</option>
               </optgroup>
               <optgroup label="OpenAI">
                 <option value="gpt-6-astra">gpt-6-astra</option>
