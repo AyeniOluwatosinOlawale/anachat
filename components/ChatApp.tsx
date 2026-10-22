@@ -319,8 +319,8 @@ export default function ChatApp() {
 
         const topFact = (data.topFact ?? '').trim();
 
-        if (topFact.length > 20) {
-          // We have a verified fact — skip the model entirely
+        if (topFact.length > 20 && needsLiveData(userMsg.content)) {
+          // Only bypass the model when the query genuinely needs live data
           directAnswer = topFact;
         } else if (data.results && data.results.length > 0) {
           // No clean topFact — fall back to model with supporting context
