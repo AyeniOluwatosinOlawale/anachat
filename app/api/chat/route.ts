@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
   const payload = sanitizeChatPayload(body);
   const model = body.model as string;
   const isOpenAI = RESPONSES_API_MODELS.has(model) || CHAT_COMPLETIONS_MODELS.has(model);
-  const isThinkingModel = model.startsWith('qwen3');
+  const isThinkingModel = model.startsWith('qwen3') || model === 'AnaModel';
 
   let upstream: Response;
   let useResponsesApi = false;
