@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
     if (!apiKey || !baseUrl) return errorResponse('API configuration missing', 500);
 
     try {
-      upstream = await fetch(`${baseUrl}/api/v1/chat/completions`, {
+      upstream = await fetch(`${baseUrl}/v1/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify(payload),
