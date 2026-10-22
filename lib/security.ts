@@ -8,7 +8,7 @@ const ALLOWED_IMAGE_SIZES = new Set(['256x256', '512x512', '1024x1024']);
 const MAX_MESSAGES = 50;
 const MAX_MESSAGE_CHARS = 8000;    // per message
 const MAX_PROMPT_CHARS = 2000;     // image prompt
-const MAX_TOKENS_CAP = 2048;
+const MAX_TOKENS_CAP = 512;
 const MAX_BODY_BYTES = 64 * 1024;  // 64 KB hard limit
 
 // ─── Rate limiter (in-memory, per serverless instance) ────────────────────────

@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
     const baseUrl = process.env.ANACHAT_BASE_URL;
     if (!apiKey || !baseUrl) return errorResponse('API configuration missing', 500);
     try {
-      upstream = await fetch(`${baseUrl}/v1/chat/completions`, {
+      upstream = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify(payload),
@@ -201,9 +201,11 @@ export async function POST(req: NextRequest) {
 
     if (!upstream.ok) {
       const status = upstream.status;
+      const errBody = await upstream.text().catch(() => '');
+      const detail = errBody.slice(0, 300);
       if (status === 502 || status === 503 || status === 504)
         return errorResponse('The AI model server is currently offline. Please try again later.', status);
-      return errorResponse(`Model server returned an error (${status}). Please try again.`, status);
+      return errorResponse(`Server error (${status}): ${detail}`, status);
     }
   }
 
