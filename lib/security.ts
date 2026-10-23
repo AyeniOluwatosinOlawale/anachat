@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server';
 
 // ─── Allowed models ───────────────────────────────────────────────────────────
-const ALLOWED_CHAT_MODELS = new Set(['AnaModel', 'embeddinggemma-2', 'gpt-6-astra', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo']);
+const ALLOWED_CHAT_MODELS = new Set(['AnaModel']);
 const ALLOWED_IMAGE_SIZES = new Set(['256x256', '512x512', '1024x1024']);
 
 // ─── Limits ───────────────────────────────────────────────────────────────────
 const MAX_MESSAGES = 50;
-const MAX_MESSAGE_CHARS = 8000;    // per message
+const MAX_MESSAGE_CHARS = 32000;   // per message
 const MAX_PROMPT_CHARS = 2000;     // image prompt
 const MAX_TOKENS_CAP = 4096;
 const MAX_BODY_BYTES = 64 * 1024;  // 64 KB hard limit
@@ -101,7 +101,11 @@ export function validateImageBody(body: Record<string, unknown>): string | null 
 // ─── Sanitize the forwarded chat payload ─────────────────────────────────────
 // Strip any client-supplied keys that could override upstream behaviour
 export function sanitizeChatPayload(body: Record<string, unknown>): Record<string, unknown> {
-  const messages = (body.messages as Message[]).map((m) => ({
+  // Keep only the last 20 messages to avoid context overflow, always include system message if present
+  const allMessages = body.messages as Message[];
+  const systemMsgs = allMessages.filter((m) => m.role === 'system');
+  const nonSystemMsgs = allMessages.filter((m) => m.role !== 'system').slice(-20);
+  const messages = [...systemMsgs, ...nonSystemMsgs].map((m) => ({
     role: m.role,
     content: m.content.slice(0, MAX_MESSAGE_CHARS),
   }));

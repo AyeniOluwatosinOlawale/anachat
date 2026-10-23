@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Mode = 'chat' | 'image';
-type Model = 'AnaModel' | 'embeddinggemma-2' | 'gpt-6-astra' | 'gpt-4o' | 'gpt-4o-mini';
+type Model = 'AnaModel';
 type Role = 'user' | 'assistant';
 type ApiRole = 'user' | 'assistant' | 'system';
 
@@ -310,38 +310,6 @@ export default function ChatApp() {
 
     updateConversation(convId, (c) => ({ ...c, messages: [...c.messages, userMsg, placeholder] }));
 
-    // ── EmbeddingGemma 2: return semantic embedding info ──────────────────────
-    if (model === 'embeddinggemma-2') {
-      try {
-        const res = await fetch('/api/embeddings', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': 'zuFw3OLTYYkpsLkH8RfsGhZzHeDpGW9rK5HxV_ybz3A',
-          },
-          body: JSON.stringify({ input: userMsg.content }),
-        });
-        const data = await res.json() as { data?: { embedding: number[] }[]; model?: string };
-        const vec = data?.data?.[0]?.embedding ?? [];
-        const preview = vec.slice(0, 8).map((v: number) => v.toFixed(4)).join(', ');
-        const norm = Math.sqrt(vec.reduce((s: number, v: number) => s + v * v, 0)).toFixed(6);
-        const result = `**EmbeddingGemma 2** — semantic embedding generated\n\n- **Dimensions:** ${vec.length}\n- **L2 norm:** ${norm}\n- **First 8 values:** \`[${preview}, …]\`\n\n> This text has been encoded into a ${vec.length}-dimensional vector. Use it for semantic search, similarity comparison, or RAG pipelines.`;
-        updateConversation(convId, (c) => {
-          const updated = c.messages.map((m) =>
-            m.id === placeholderId ? { ...m, content: result, isStreaming: false } : m
-          );
-          return { ...c, messages: updated, title: getTitle(updated) };
-        });
-      } catch {
-        updateConversation(convId, (c) => ({
-          ...c,
-          messages: c.messages.map((m) => m.id === placeholderId ? { ...m, content: '⚠️ Embedding server unreachable.', isStreaming: false } : m),
-        }));
-      }
-      setLoading(false);
-      return;
-    }
-
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
@@ -560,23 +528,6 @@ export default function ChatApp() {
         </div>
       )}
 
-      {/* Model selector (mobile: shown in sidebar) */}
-      {isMobile && (
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #2a2a2a' }}>
-          <p style={{ fontSize: 11, color: '#555', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Model</p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {(['AnaModel', 'embeddinggemma-2', 'gpt-6-astra', 'gpt-4o', 'gpt-4o-mini'] as Model[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => setModel(m)}
-                style={{ flex: 1, padding: '10px 0', background: model === m ? '#1a0a2e' : '#111', color: model === m ? '#c084fc' : '#888', border: `1px solid ${model === m ? '#6d28d9' : '#2a2a2a'}`, borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
 
       {/* Conversation history */}
@@ -682,23 +633,11 @@ export default function ChatApp() {
             </div>
           )}
 
-          {/* Model selector (desktop only) */}
+          {/* Model label (desktop only) */}
           {!isMobile && (
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value as Model)}
-              style={{ background: '#1a1a1a', color: '#ededed', border: '1px solid #2a2a2a', borderRadius: 8, padding: '7px 12px', fontSize: 13, cursor: 'pointer', outline: 'none' }}
-            >
-              <optgroup label="Local Models">
-                <option value="AnaModel">AnaModel</option>
-                <option value="embeddinggemma-2">embeddinggemma-2</option>
-              </optgroup>
-              <optgroup label="OpenAI">
-                <option value="gpt-6-astra">gpt-6-astra</option>
-                <option value="gpt-4o">gpt-4o</option>
-                <option value="gpt-4o-mini">gpt-4o-mini</option>
-              </optgroup>
-            </select>
+            <span style={{ background: '#1a1a1a', color: '#c084fc', border: '1px solid #2a2a2a', borderRadius: 8, padding: '7px 12px', fontSize: 13, fontWeight: 600 }}>
+              AnaModel
+            </span>
           )}
 
           {/* Mobile: compact mode badge */}

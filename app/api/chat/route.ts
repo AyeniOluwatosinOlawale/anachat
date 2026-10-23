@@ -182,11 +182,15 @@ export async function POST(req: NextRequest) {
 
     if (!upstream.ok) {
       const status = upstream.status;
-      const errBody = await upstream.text().catch(() => '');
-      const detail = errBody.slice(0, 300);
       if (status === 502 || status === 503 || status === 504)
         return errorResponse('The AI model server is currently offline. Please try again later.', status);
-      return errorResponse(`Server error (${status}): ${detail}`, status);
+      return errorResponse(`Model server returned an error (${status}). Please try again.`, status);
+    }
+
+    // Guard against HTML error pages being streamed as SSE
+    const contentType = upstream.headers.get('content-type') ?? '';
+    if (contentType.includes('text/html')) {
+      return errorResponse('Model server returned an unexpected response. Please try again.', 502);
     }
   }
 
