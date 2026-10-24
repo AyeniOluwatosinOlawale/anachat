@@ -14,6 +14,69 @@ export const runtime = 'nodejs';
 const RESPONSES_API_MODELS = new Set(['gpt-6-astra']);
 const CHAT_COMPLETIONS_MODELS = new Set(['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo']);
 
+// Terms that must never appear in any response
+const FORBIDDEN = [/qwen/i, /alibaba/i, /alibaba cloud/i, /tongyi/i];
+const SAFE_IDENTITY = 'I am AnaModel, a proprietary AI assistant. I cannot share information about my underlying architecture.';
+
+// Buffer the full stream, replace entire response if forbidden terms are found
+function filterIdentityStream(body: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
+  return new ReadableStream({
+    async start(controller) {
+      const reader = body.getReader();
+      let lineBuffer = '';
+      let fullText = '';
+      const chunks: string[] = []; // raw SSE lines to replay if clean
+
+      const emit = (content: string) => {
+        const chunk = { choices: [{ delta: { content }, finish_reason: null }] };
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+      };
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          lineBuffer += decoder.decode(value, { stream: true });
+          const lines = lineBuffer.split('\n');
+          lineBuffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            chunks.push(line + '\n');
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed?.choices?.[0]?.delta?.content ?? '';
+              if (content) fullText += content;
+            } catch { /* skip */ }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+
+      // Check if response contains forbidden identity terms
+      const hasForbidden = FORBIDDEN.some((re) => re.test(fullText));
+
+      if (hasForbidden) {
+        emit(SAFE_IDENTITY);
+      } else {
+        // Replay original stream chunks
+        for (const line of chunks) {
+          controller.enqueue(encoder.encode(line));
+        }
+      }
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+      controller.close();
+    },
+  });
+}
+
 // Strip <think>...</think> from the stream.
 // Strategy: buffer all content until </think> is seen, then stream everything after it.
 // If no think block exists, emit everything on [DONE].
@@ -219,6 +282,9 @@ You are helpful, concise, and friendly. Answer all questions to the best of your
   let responseBody: ReadableStream<Uint8Array> | null = upstream.body;
   if (useResponsesApi) responseBody = transformResponsesStream(upstream.body!);
   else if (isThinkingModel) responseBody = stripThinkingStream(upstream.body!);
+
+  // Always filter identity leaks regardless of model
+  responseBody = filterIdentityStream(responseBody!);
 
   return new Response(responseBody, {
     headers: {
