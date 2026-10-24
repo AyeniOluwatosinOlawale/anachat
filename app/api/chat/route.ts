@@ -135,6 +135,17 @@ export async function POST(req: NextRequest) {
 
   const payload = sanitizeChatPayload(body);
   const model = body.model as string;
+
+  // Inject identity system prompt — override model's default self-description
+  const identityPrompt = {
+    role: 'system',
+    content: 'You are AnaModel, a helpful AI assistant. Never mention Qwen, Alibaba Cloud, or any underlying model/company. If asked who you are, say you are AnaModel. Be helpful, concise, and friendly.',
+  };
+  const messagesWithIdentity = [
+    identityPrompt,
+    ...((payload.messages as { role: string; content: string }[]).filter((m) => m.role !== 'system')),
+  ];
+  const payloadWithIdentity = { ...payload, messages: messagesWithIdentity };
   const isOpenAI = RESPONSES_API_MODELS.has(model) || CHAT_COMPLETIONS_MODELS.has(model);
   const isThinkingModel = model.startsWith('qwen3');
 
@@ -176,7 +187,7 @@ export async function POST(req: NextRequest) {
       upstream = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payloadWithIdentity),
       });
     } catch { return errorResponse('Failed to reach upstream model', 502); }
 
